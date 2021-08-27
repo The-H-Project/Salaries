@@ -10,6 +10,7 @@ inputdirectory <- 'D:/Data/'
 outputdirectory <- 'D:/Data/'
 inputfile <- 'Citywide_Payroll_Data_Fiscal_Year_20210810.csv'
 outputfile <- 'Citywide_Payroll_20210810.RDS'
+DEP_outputfile <- 'Citywide_Payroll_DEP_20210810.RDS'
 outputprefix <- 'CP_20210810_'
 
 dataset <- fread(paste0(inputdirectory, inputfile))
@@ -18,7 +19,7 @@ saveRDS(dataset, paste0(inputdirectory, outputfile))
 
 test <- dataset[`Last Name` == 'WILSON' & `First Name` == 'PETA GAY']
 
-DEP_dataset <- dataset[`Payroll Number` == 826]
+DEP_dataset <- dataset[`Agency Name` == 'DEPT OF ENVIRONMENT PROTECTION']
 
 
 # Create worksheet format styles
@@ -55,3 +56,4 @@ Save_to_XLSX <- function(Table2Save, TabName, FileName)
 
 Save_to_XLSX(test, 'PWilson', 'PWilson.xlsx')
 Save_to_XLSX(DEP_dataset, 'DEP_Dataset', 'DEP_Dataset.xlsx')
+saveRDS(DEP_dataset, paste0(inputdirectory, DEP_outputfile))
