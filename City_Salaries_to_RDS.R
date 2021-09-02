@@ -88,6 +88,6 @@ Save_to_XLSX <- function(Table2Save, TabName, FileName)
 }
 
 
-Save_to_XLSX(test, 'PWilson', 'PWilson.xlsx')
-Save_to_XLSX(DEP_dataset, 'DEP_Dataset', 'DEP_Dataset.xlsx')
+Save_to_XLSX(test, 'PWilson', 'PWilson')
+Save_to_XLSX(DEP_dataset, 'DEP_Dataset', 'DEP_Dataset')
 saveRDS(DEP_dataset, paste0(inputdirectory, DEP_outputfile))

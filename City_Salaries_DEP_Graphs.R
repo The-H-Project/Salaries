@@ -156,8 +156,9 @@ AdminSA_7Yr_Growth <- AdminSA[`Fiscal Year` == 2020L][
 
 ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = NumTitleChanges, size = Yrs_Svc)) + 
   geom_point() +
-  labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020') +
-  xlab('Salary Multiple from 30 June 2014') +
+  labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020',
+       subtitle = 'for Active Staff as of 6/30/2020') +
+  xlab('Salary Multiple from 6/30/2014 to 6/30/2020') +
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous() +
   scale_y_continuous(limits = c(0,100000), labels = label_dollar(negative_parens = TRUE)) +
