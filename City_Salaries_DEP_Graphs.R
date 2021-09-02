@@ -7,9 +7,40 @@ library(scales)
 library(lubridate)
 library(openxlsx)
 
+# Find out which platform we're running under.
+get_os <- function(){
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)){
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "osx"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)
+}
 
-inputdirectory <- 'd:/Data/'
-outputdirectory <- 'd:/Data/'
+# Set environmental variables based on platform.
+os <- get_os()
+if (os == 'osx')
+{
+  inputdirectory <- '/Volumes/H2018/AX/'
+  outputdirectory <- '/Volumes/H2018/AX/'
+} else if (os == 'windows')
+{
+  inputdirectory <- 'd:/Data/'
+  outputdirectory <- 'd:/Data/'
+  Sys.setenv('R_ZIPCMD' = 'c:/rtools/bin/zip.exe')
+} else
+{
+  stop('Operating System unknown.')
+}
+
+
 inputfile <- 'Citywide_Payroll_DEP_20210810.RDS'
 outputprefix <- 'CP_'
 
@@ -44,6 +75,7 @@ Save_to_XLSX <- function(Table2Save, TabName, FileName)
   saveWorkbook(RTSBook, paste0(outputdirectory, outputprefix, FileName, '.xlsx'), overwrite = TRUE)
 }
 
+
 DEPdataset <- readRDS(paste0(inputdirectory, inputfile))
 
 # Convert some fields to more usable data types, and add a row number.
@@ -58,7 +90,7 @@ DEPdataset[, `:=` (`Agency Start Date` = as.IDate(`Agency Start Date`, format = 
 # share the same names.
 DEPdataset[, SynID := .GRP, by = c('Last Name', 'First Name', 'Mid Init', 'Agency Start Date')]
 
-# Does anyone here have multiple entries in a year?
+# Does anyone here have multiple entries in a year? This does happen.
 DEPdataset[, DupFY := duplicated(DEPdataset, by = c('SynID', 'Fiscal Year'))]
 DupSet <- DEPdataset[DupFY == TRUE]
 
@@ -67,8 +99,6 @@ Num_ID <- DEPdataset[, max(SynID)]
 DEP_No_Regular_Gross <- DEPdataset[`Regular Gross Paid` <= 0]
 DEP_Regular_Gross <- DEPdataset[!DEP_No_Regular_Gross, on = 'RowNum']
 DEP_Per_Annum_Active <- DEP_Regular_Gross[`Pay Basis` == 'per Annum' & `Leave Status as of June 30` == 'ACTIVE']
-
-Harris <- DEPdataset[`Last Name` == 'LAM' & `First Name` == 'HARRIS'][order (`Fiscal Year`)]
 
 # Do some salary math per each synthetic ID.
 # Changing NA to values to 0 is important, otherwise the cumulative sum function doesn't work.
@@ -105,14 +135,14 @@ AdminSA_Stats <- AdminSA[, .(NumTitleChanges = uniqueN(`Title Description`) - 1,
                              Min_Base_Salary = min(`Base Salary`),
                              Max_Base_Salary = max(`Base Salary`)), by = SynID]
                                  
-# MaxTitleChanges <- AdminSA[, max(NumTitleChanges)]
-# MaxTitleColors <- head(blues9, MaxTitleChanges + 1)
-# 
-# MaxTitleColors <- blues9[2:MaxTitleChanges + 1]
-
-
-ggplot(AdminSA, aes(x = `Fiscal Year`, y = `Regular Gross Paid`, group = `Fiscal Year`)) + geom_boxplot()
-
+# DEP Admin Staff Analyst plots
+# Graph 01: Boxplot
+ggplot(AdminSA, aes(x = `Fiscal Year`, y = `Base Salary`, group = `Fiscal Year`)) + 
+  geom_boxplot() +
+  labs(title = 'DEP Admin Staff Analysts: Base Salaries FY 2014 to 2020') +
+  scale_y_continuous(labels = label_dollar(negative_parens = TRUE)) 
+  
+# Graph 02: BoxPlot 2
 # 1. Summary table for graph. Use Fiscal Year 2020 to get the final cumulative salary change, 
 #    percent cumulative salary change, etc.
 # 2. Merge with Stat Table
@@ -124,25 +154,20 @@ AdminSA_7Yr_Growth <- AdminSA[`Fiscal Year` == 2020L][
     AdminSA_Stats, on ='SynID'][
     order (Cum_Salary_Change)]
 
-
-# Punctuation matters!
-ggplot(AdminSA_7Yr_Growth, aes(x = reorder(`Last Name`, Cum_Salary_Change), y = Cum_Salary_Change)) + 
-  geom_bar(stat = 'identity') 
 ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = NumTitleChanges, size = Yrs_Svc)) + 
   geom_point() +
-  labs(title = 'Salary Cumulative Change 2014 to 2020') +
+  labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020') +
   xlab('Salary Multiple from 30 June 2014') +
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous() +
-  scale_y_continuous(labels = label_dollar(negative_parens = TRUE)) +
+  scale_y_continuous(limits = c(0,100000), labels = label_dollar(negative_parens = TRUE)) +
   scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2))
-  #scale_color_gradientn(colors = MaxTitleColors)
-  # scale_color_manual(values = MaxTitleColors)
-  #scale_color_gradient2(limits = c(0,2))
-  #scale_color_manual(colors = blues9, na.translate = FALSE)
-  #scale_color_gradientn(colors = blues9, limits=c(0,2))
 
-AdminTest <- AdminSA_7Yr_Growth[SCM > 1.5]
+# Who are the people with a base salary growth of more than 1.6x since 2014?
+AdminSA_HighGrowth <- AdminSA_7Yr_Growth[SCM >= 1.6]
+
+
+
 
 # Still the same problem.  
 AdminSATest <- AdminSA_7Yr_Growth[, `Last Name` := reorder(`Last Name`, Cum_Salary_Change)]
