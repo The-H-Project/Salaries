@@ -28,8 +28,8 @@ get_os <- function(){
 os <- get_os()
 if (os == 'osx')
 {
-  inputdirectory <- '/Volumes/H2018/AX/'
-  outputdirectory <- '/Volumes/H2018/AX/'
+  inputdirectory <- '/Volumes/Corsair/Data/'
+  outputdirectory <- '/Volumes/Corsair/Data/'
 } else if (os == 'windows')
 {
   inputdirectory <- 'd:/Data/'
@@ -190,7 +190,7 @@ Save_to_XLSX(AdminTest1, 'AdminTest1', 'AdminTest1')
 # # Harris[is.na(Pct_SalaryChange), Pct_SalaryChange := 0L] 
 # # 
 # 
-Save_to_XLSX(Harris, 'Harris', 'Harris')
+# Save_to_XLSX(Harris, 'Harris', 'Harris')
 
 LuLiu <- DEPdataset[`Last Name` == 'LIU' & `First Name` == 'LU'][order (`Fiscal Year`)]
 Save_to_XLSX(LuLiu, 'LuLiu', 'LuLiu')
@@ -206,7 +206,7 @@ Mike <- DEPdataset[`Last Name` == 'MORAN' & `First Name` == 'MICHAEL'][order (`F
 Belinda <- DEPdataset[`Last Name` == 'LI' & `First Name` == 'JUN'][order (`Fiscal Year`)]
 Save_to_XLSX(Belinda, 'Belinda', 'Belinda')
 
-ggplot(Harris, aes(x = `Fiscal Year`, PctChange)) + geom_line()
+# ggplot(Harris, aes(x = `Fiscal Year`, PctChange)) + geom_line()
 ggplot(LuLiu, aes(x = `Fiscal Year`, `Base Salary`)) + geom_line()
 ggplot(LuLiu, aes(x = `Fiscal Year`, PctChange)) + geom_line()
 

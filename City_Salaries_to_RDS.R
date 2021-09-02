@@ -2,12 +2,46 @@
 # 
 #
 #
+rm(list=ls())
+
 library(bit64)
 library(data.table)
 library(openxlsx)
 
-inputdirectory <- 'D:/Data/'
-outputdirectory <- 'D:/Data/'
+# Find out which platform we're running under.
+get_os <- function(){
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)){
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "osx"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)
+}
+
+# Set environmental variables based on platform.
+os <- get_os()
+if (os == 'osx')
+{
+  inputdirectory <- '/Volumes/Corsair/Data/'
+  outputdirectory <- '/Volumes/Corsair/Data/'
+} else if (os == 'windows')
+{
+  inputdirectory <- 'd:/Data/'
+  outputdirectory <- 'd:/Data/'
+  Sys.setenv('R_ZIPCMD' = 'c:/rtools/bin/zip.exe')
+} else
+{
+  stop('Operating System unknown.')
+}
+
+
 inputfile <- 'Citywide_Payroll_Data_Fiscal_Year_20210810.csv'
 outputfile <- 'Citywide_Payroll_20210810.RDS'
 DEP_outputfile <- 'Citywide_Payroll_DEP_20210810.RDS'
