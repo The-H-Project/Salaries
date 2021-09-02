@@ -32,8 +32,8 @@ if (os == 'osx')
   outputdirectory <- '/Volumes/Corsair/Data/'
 } else if (os == 'windows')
 {
-  inputdirectory <- 'd:/Data/'
-  outputdirectory <- 'd:/Data/'
+  inputdirectory <- 'c:/Data/'
+  outputdirectory <- 'c:/Data/'
   Sys.setenv('R_ZIPCMD' = 'c:/rtools/bin/zip.exe')
 } else
 {
@@ -192,6 +192,10 @@ Save_to_XLSX(AdminTest1, 'AdminTest1', 'AdminTest1')
 # # 
 # 
 # Save_to_XLSX(Harris, 'Harris', 'Harris')
+
+Harris <- DEPdataset[`Last Name` == 'LAM' & `First Name` == 'HARRIS'][order (`Fiscal Year`)]
+Save_to_XLSX(Harris, 'Harris', 'Harris')
+
 
 LuLiu <- DEPdataset[`Last Name` == 'LIU' & `First Name` == 'LU'][order (`Fiscal Year`)]
 Save_to_XLSX(LuLiu, 'LuLiu', 'LuLiu')
