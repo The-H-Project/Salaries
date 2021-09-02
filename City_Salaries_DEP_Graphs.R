@@ -3,7 +3,10 @@ rm(list=ls())
 library(bit64)
 library(data.table)
 library(ggplot2)
+library(scales)
+library(lubridate)
 library(openxlsx)
+
 
 inputdirectory <- 'd:/Data/'
 outputdirectory <- 'd:/Data/'
@@ -71,30 +74,86 @@ Harris <- DEPdataset[`Last Name` == 'LAM' & `First Name` == 'HARRIS'][order (`Fi
 # Changing NA to values to 0 is important, otherwise the cumulative sum function doesn't work.
 # Done in blocks because upstream variables must be calculated first.
 setorder(DEPdataset, `Fiscal Year`)
-DEPdataset[, SalaryChange := `Regular Gross Paid` - shift(`Regular Gross Paid`, 1), by = SynID][
+DEPdataset[, SalaryChange := `Base Salary` - shift(`Base Salary`, 1), by = SynID][
            is.na(SalaryChange), SalaryChange := 0L][
-           , `:=` (Pct_SalaryChange = SalaryChange / shift(`Regular Gross Paid`, 1),
+           , `:=` (Pct_SalaryChange = SalaryChange / shift(`Base Salary`, 1),
                    Cum_Salary_Change = cumsum(SalaryChange)), by = SynID][
-           , Pct_Cum_Salary_Change := Cum_Salary_Change / `Regular Gross Paid`[1], by = SynID]
+           , Pct_Cum_Salary_Change := Cum_Salary_Change / `Base Salary`[1], by = SynID]
                   
 Save_to_XLSX(DEPdataset, 'DEPdataset', 'DEPdataset')
 
-# Figure out who was an active Admin Staff Analyst in FY 2020
+
+DEPActive2020 <- DEPdataset[`Fiscal Year` == 2020L & `Leave Status as of June 30` == 'ACTIVE']
+DEPActive2020[, Yrs_Svc := interval(`Agency Start Date`, as.IDate('2020-06-30')) / years(1)]
+ggplot(DEPActive2020, aes(x = Pct_Cum_Salary_Change, y = Cum_Salary_Change, size = Yrs_Svc)) + geom_point() +
+  xlab('Percentage Cumulative Change') +
+  ylab('Cumulative Salary Change ($)') +
+  scale_x_continuous(labels = label_percent()) +
+  scale_y_continuous(labels = label_dollar(negative_parens = TRUE))
+
+
+# Figure out who was an active Admin Staff Analyst at the end of FY 2020, and:
+# - number of years of total service at DEP
+# - number of title changes 
 AdminStaffAnalystIDs <- DEPdataset[`Fiscal Year` == 2020L & 
                         `Title Description` == 'ADMINISTRATIVE STAFF ANALYST' & 
                         `Leave Status as of June 30` == 'ACTIVE', SynID]
 AdminSA <- DEPdataset[SynID %in% AdminStaffAnalystIDs]
+
+# Summary statistics Table.
+AdminSA_Stats <- AdminSA[, .(NumTitleChanges = uniqueN(`Title Description`) - 1,
+                             Min_Base_Salary = min(`Base Salary`),
+                             Max_Base_Salary = max(`Base Salary`)), by = SynID]
+                                 
+# MaxTitleChanges <- AdminSA[, max(NumTitleChanges)]
+# MaxTitleColors <- head(blues9, MaxTitleChanges + 1)
+# 
+# MaxTitleColors <- blues9[2:MaxTitleChanges + 1]
+
+
 ggplot(AdminSA, aes(x = `Fiscal Year`, y = `Regular Gross Paid`, group = `Fiscal Year`)) + geom_boxplot()
 
-AdminSA_7Yr_Growth <- AdminSA[`Fiscal Year` == 2020L][, .(`Last Name`, Cum_Salary_Change, Pct_Cum_Salary_Change = Pct_Cum_Salary_Change * 100)]
+# 1. Summary table for graph. Use Fiscal Year 2020 to get the final cumulative salary change, 
+#    percent cumulative salary change, etc.
+# 2. Merge with Stat Table
+# 3. Sort by Cumulative Salary Change
+AdminSA_7Yr_Growth <- AdminSA[`Fiscal Year` == 2020L][
+  , .(`Last Name`, `First Name`, Cum_Salary_Change, Pct_Cum_Salary_Change, 
+      SCM = Pct_Cum_Salary_Change + 1,
+      Yrs_Svc = interval(`Agency Start Date`, as.IDate('2020-06-30')) / years(1)), by = SynID][
+    AdminSA_Stats, on ='SynID'][
+    order (Cum_Salary_Change)]
 
-AdminSA_7Yr_Growth <- head(AdminSA_7Yr_Growth, 10)
 
-ggplot(AdminSA_7Yr_Growth, aes(x = `Last Name`, y = 'Cum_Salary_Change')) + 
-  geom_bar(stat = 'identity')
-  
-  
-ggplot(AdminSA_7Yr_Growth, aes(x = `Last Name`, y = 'Pct_Cum_Salary_Change')) + geom_line()
+# Punctuation matters!
+ggplot(AdminSA_7Yr_Growth, aes(x = reorder(`Last Name`, Cum_Salary_Change), y = Cum_Salary_Change)) + 
+  geom_bar(stat = 'identity') 
+ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = NumTitleChanges, size = Yrs_Svc)) + 
+  geom_point() +
+  labs(title = 'Salary Cumulative Change 2014 to 2020') +
+  xlab('Salary Multiple from 30 June 2014') +
+  ylab('Cumulative Salary Change ($)') +
+  scale_x_continuous() +
+  scale_y_continuous(labels = label_dollar(negative_parens = TRUE)) +
+  scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2))
+  #scale_color_gradientn(colors = MaxTitleColors)
+  # scale_color_manual(values = MaxTitleColors)
+  #scale_color_gradient2(limits = c(0,2))
+  #scale_color_manual(colors = blues9, na.translate = FALSE)
+  #scale_color_gradientn(colors = blues9, limits=c(0,2))
+
+AdminTest <- AdminSA_7Yr_Growth[SCM > 1.5]
+
+# Still the same problem.  
+AdminSATest <- AdminSA_7Yr_Growth[, `Last Name` := reorder(`Last Name`, Cum_Salary_Change)]
+ggplot(AdminSATest, aes(x = `Last Name`, y = Cum_Salary_Change)) + 
+  geom_bar(stat = 'identity') 
+
+AdminTest1 <- AdminSA[Cum_Salary_Change > 100000]
+Save_to_XLSX(AdminTest1, 'AdminTest1', 'AdminTest1')
+
+
+#ggplot(AdminSA_7Yr_Growth, aes(x = Cum_Salary_Change, y = 'Pct_Cum_Salary_Change')) + geom_line()
 
 
 # # Changing NA to values to 0 is important, otherwise cumsum function doesn't work.
