@@ -110,13 +110,17 @@ DEP_Per_Annum_Active <- DEP_Regular_Gross[`Pay Basis` == 'per Annum' & `Leave St
 # Do some salary math per each synthetic ID.
 # Changing NA to values to 0 is important, otherwise the cumulative sum function doesn't work.
 # Done in blocks because upstream variables must be calculated first.
+# Note that OT_Util_Rate has NaN values where division by 0 occurs. No adjustments yet because
+# we're not doing anything with the data.
 setorder(DEPdataset, `Fiscal Year`)
-DEPdataset[, SalaryChange := `Base Salary` - shift(`Base Salary`, 1), by = SynID][
+DEPdataset[, `:=` (SalaryChange = `Base Salary` - shift(`Base Salary`, 1),
+                   OT_Util_Rate = `OT Hours` / (`OT Hours` + `Regular Hours`),
+                   B_Sal_Inc = 0), by = SynID][
+           SalaryChange > 0, B_Sal_Inc := 1][   
            is.na(SalaryChange), SalaryChange := 0L][
            , `:=` (Pct_SalaryChange = SalaryChange / shift(`Base Salary`, 1),
                    Cum_Salary_Change = cumsum(SalaryChange)), by = SynID][
            , Pct_Cum_Salary_Change := Cum_Salary_Change / `Base Salary`[1], by = SynID]
-                  
 Save_to_XLSX(DEPdataset, 'DEPdataset', 'DEPdataset')
 
 
@@ -139,6 +143,7 @@ AdminSA <- DEPdataset[SynID %in% AdminStaffAnalystIDs]
 
 # Summary statistics Table.
 AdminSA_Stats <- AdminSA[, .(NumTitleChanges = uniqueN(`Title Description`) - 1,
+                             Sal_Inc = sum(B_Sal_Inc),
                              Min_Base_Salary = min(`Base Salary`),
                              Max_Base_Salary = max(`Base Salary`)), by = SynID]
                                  
@@ -165,7 +170,7 @@ AdminSA_7Yr_Growth <- AdminSA[`Fiscal Year` == 2020L][
     order (Cum_Salary_Change)]
 
 Graph02_Max_Y <- AdminSA[, rounder(max(Cum_Salary_Change), 25000)]
-Graph02 <- ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = NumTitleChanges, size = Yrs_Svc)) + 
+Graph02 <- ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = Sal_Inc, size = Yrs_Svc)) + 
   geom_point() +
   labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020',
        subtitle = 'for Active Staff as of 6/30/2020') +
@@ -173,7 +178,8 @@ Graph02 <- ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = 
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous() +
   scale_y_continuous(limits = c(0, Graph02_Max_Y), labels = label_dollar(negative_parens = TRUE)) +
-  scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) 
+  scale_color_gradientn(colors = blues9) 
+  #scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) 
 print(Graph02)
 
 # Who are the people with a base salary growth of more than 1.6x since 2014?
@@ -183,7 +189,7 @@ Save_to_XLSX(AdminSA_HighGrowth, 'AdminSA_HG', 'AdminSA_High_Growth')
 Graph02a_Max_Y <- AdminSA_HighGrowth[, rounder(max(Cum_Salary_Change), 20000)]
 Graph02a_Min_Y <- AdminSA_HighGrowth[, rounder(min(Cum_Salary_Change), -20000)]
 
-Graph02a <- ggplot(AdminSA_HighGrowth, aes(x = SCM, y = Cum_Salary_Change, size = Yrs_Svc)) + 
+Graph02a <- ggplot(AdminSA_HighGrowth, aes(x = SCM, y = Cum_Salary_Change, col = Sal_Inc, size = Yrs_Svc)) + 
   geom_point() +
   labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020',
        subtitle = 'Active Staff as of 6/30/2020 with Salary Growth >= 1.6x') +
@@ -191,12 +197,20 @@ Graph02a <- ggplot(AdminSA_HighGrowth, aes(x = SCM, y = Cum_Salary_Change, size 
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous() +
   scale_y_continuous(limits = c(20000, Graph02a_Max_Y), labels = label_dollar(negative_parens = TRUE)) +
-  scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) +
-  geom_text_repel(data = AdminSA_HighGrowth,
+  scale_color_gradientn(colors = blues9) +
+  # scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) +
+  geom_text_repel(data = AdminSA_HighGrowth, color = 'black',
             aes(x = SCM, y = Cum_Salary_Change, 
                 label = c(paste0(`First Name`, ' ', `Last Name`)))) +
   scale_size(range = c(2, 4))
 print(Graph02a)
+
+# Graph03 <- ggplot(AdminSA, aes(x = `Fiscal Year`, y = 'OT_Util_Rate')) + geom_point() +
+#   scale_y_continuous(limits = c(0, .99)) 
+# print(Graph03)
+# max(AdminSA$OT_Util_Rate)
+# 
+# Graph03 <- ggplot()
 
 EveryoneID <- DEPdataset[`Fiscal Year` == 2020L & 
                       `Leave Status as of June 30` == 'ACTIVE', SynID]
@@ -229,7 +243,6 @@ EveryoneTable <- DEPdataset[SynID %in% EveryoneID]
 # 
 # Save_to_XLSX(Harris, 'Harris', 'Harris')
 
-
 Harris <- DEPdataset[`Last Name` == 'LAM' & `First Name` == 'HARRIS'][order (`Fiscal Year`)]
 Save_to_XLSX(Harris, 'Harris', 'Harris')
 
@@ -246,11 +259,11 @@ Save_to_XLSX(LuLiu_7, 'LuLiu_7', 'LuLiu_7')
 
 
 # 
-# Carol <- DEPdataset[`Last Name` == 'DAVIS' & `First Name` == 'CAROL'][order (`Fiscal Year`)]
-# Save_to_XLSX(Carol, 'Carol', 'Carol')
-# 
-# Christine <- DEPdataset[`Last Name` == 'SAM' & `First Name` == 'CHRISTINE'][order (`Fiscal Year`)]
-# Save_to_XLSX(Christine, 'Christine', 'Christine')
+Carol <- DEPdataset[`Last Name` == 'DAVIS' & `First Name` == 'CAROL'][order (`Fiscal Year`)]
+Save_to_XLSX(Carol, 'Carol', 'Carol')
+
+Christine <- DEPdataset[`Last Name` == 'SAM' & `First Name` == 'CHRISTINE'][order (`Fiscal Year`)]
+Save_to_XLSX(Christine, 'Christine', 'Christine')
 # 
 # 
 # Mike <- DEPdataset[`Last Name` == 'MORAN' & `First Name` == 'MICHAEL'][order (`Fiscal Year`)]
@@ -269,14 +282,4 @@ ggplot(DEP_Per_Annum_Active, aes(x = `Fiscal Year`, y = `Regular Gross Paid`, gr
 
 
 
-
-# Create data
-data <- data.frame(
-  name=c("A","B","C","D","E") ,  
-  value=c(3,12,5,18,45)
-)
-
-# Barplot
-ggplot(data, aes(x=name, y=value)) + 
-  geom_bar(stat = "identity")
 
