@@ -33,8 +33,8 @@ if (os == 'osx')
   outputdirectory <- '/Volumes/Corsair/Data/'
 } else if (os == 'windows')
 {
-  inputdirectory <- 'd:/Data/'
-  outputdirectory <- 'd:/Data/'
+  inputdirectory <- 'c:/Data/'
+  outputdirectory <- 'c:/Data/'
   Sys.setenv('R_ZIPCMD' = 'c:/rtools/bin/zip.exe')
 } else
 {
@@ -124,13 +124,14 @@ DEPdataset[, `:=` (SalaryChange = `Base Salary` - shift(`Base Salary`, 1),
 Save_to_XLSX(DEPdataset, 'DEPdataset', 'DEPdataset')
 
 
-DEPActive2020 <- DEPdataset[`Fiscal Year` == 2020L & `Leave Status as of June 30` == 'ACTIVE']
+DEPActive2020 <- DEPdataset[`Fiscal Year` == 2020L & `Leave Status as of June 30` == 'ACTIVE' & `Pay Basis` == 'per Annum']
 DEPActive2020[, Yrs_Svc := interval(`Agency Start Date`, as.IDate('2020-06-30')) / years(1)]
-ggplot(DEPActive2020, aes(x = Pct_Cum_Salary_Change, y = Cum_Salary_Change, size = Yrs_Svc)) + geom_point() +
+Graph03 <- ggplot(DEPActive2020, aes(x = Pct_Cum_Salary_Change, y = Cum_Salary_Change, size = Yrs_Svc)) + geom_point() +
   xlab('Percentage Cumulative Change') +
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous(labels = label_percent()) +
   scale_y_continuous(labels = label_dollar(negative_parens = TRUE))
+print(Graph03)
 
 
 # Figure out who was an active Admin Staff Analyst at the end of FY 2020, and:
@@ -179,7 +180,6 @@ Graph02 <- ggplot(AdminSA_7Yr_Growth, aes(x = SCM, y = Cum_Salary_Change, col = 
   scale_x_continuous() +
   scale_y_continuous(limits = c(0, Graph02_Max_Y), labels = label_dollar(negative_parens = TRUE)) +
   scale_color_gradientn(colors = blues9) 
-  #scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) 
 print(Graph02)
 
 # Who are the people with a base salary growth of more than 1.6x since 2014?
@@ -188,7 +188,6 @@ Save_to_XLSX(AdminSA_HighGrowth, 'AdminSA_HG', 'AdminSA_High_Growth')
 
 Graph02a_Max_Y <- AdminSA_HighGrowth[, rounder(max(Cum_Salary_Change), 20000)]
 Graph02a_Min_Y <- AdminSA_HighGrowth[, rounder(min(Cum_Salary_Change), -20000)]
-
 Graph02a <- ggplot(AdminSA_HighGrowth, aes(x = SCM, y = Cum_Salary_Change, col = Sal_Inc, size = Yrs_Svc)) + 
   geom_point() +
   labs(title = 'DEP Admin Staff Analysts: Cumulative Salary Change FY 2014 to 2020',
@@ -196,7 +195,7 @@ Graph02a <- ggplot(AdminSA_HighGrowth, aes(x = SCM, y = Cum_Salary_Change, col =
   xlab('Salary Change Multiple from 6/30/2014 to 6/30/2020') +
   ylab('Cumulative Salary Change ($)') +
   scale_x_continuous() +
-  scale_y_continuous(limits = c(20000, Graph02a_Max_Y), labels = label_dollar(negative_parens = TRUE)) +
+  scale_y_continuous(limits = c(Graph02a_Min_Y, Graph02a_Max_Y), labels = label_dollar(negative_parens = TRUE)) +
   scale_color_gradientn(colors = blues9) +
   # scale_color_gradientn(colors = blues9, breaks = c(0,1,2), labels = c('0', '1', '2'), limits=c(0,2)) +
   geom_text_repel(data = AdminSA_HighGrowth, color = 'black',
@@ -264,11 +263,13 @@ Save_to_XLSX(Carol, 'Carol', 'Carol')
 
 Christine <- DEPdataset[`Last Name` == 'SAM' & `First Name` == 'CHRISTINE'][order (`Fiscal Year`)]
 Save_to_XLSX(Christine, 'Christine', 'Christine')
+
+
 # 
 # 
 # Mike <- DEPdataset[`Last Name` == 'MORAN' & `First Name` == 'MICHAEL'][order (`Fiscal Year`)]
-# Belinda <- DEPdataset[`Last Name` == 'LI' & `First Name` == 'JUN'][order (`Fiscal Year`)]
-# Save_to_XLSX(Belinda, 'Belinda', 'Belinda')
+Belinda <- DEPdataset[`Last Name` == 'LI' & `First Name` == 'JUN'][order (`Fiscal Year`)]
+Save_to_XLSX(Belinda, 'Belinda', 'Belinda')
 
 # ggplot(Harris, aes(x = `Fiscal Year`, PctChange)) + geom_line()
 # ggplot(LuLiu, aes(x = `Fiscal Year`, `Base Salary`)) + geom_line()
@@ -280,6 +281,20 @@ ggplot(DEPdataset, aes(x = `Fiscal Year`, y = `Regular Gross Paid`, group = `Fis
 ggplot(DEP_Per_Annum_Active, aes(x = `Fiscal Year`, y = `Regular Gross Paid`, group = `Fiscal Year`)) + geom_boxplot()
 
 
+AdminMgr_ID <- DEPdataset[`Fiscal Year` == 2020L & 
+                                     `Title Description` == 'ADM MANAGER-NON-MGRL' & 
+                                     `Leave Status as of June 30` == 'ACTIVE', SynID]
+AdminMgr_data <- DEPdataset[SynID %in% AdminMgr_ID]
 
 
+# Graph 01: Boxplot
+Graph10_Max_Y <- AdminMgr_data[, rounder(max(`Base Salary`), 50000)]
+Graph10_Min_Y <- AdminMgr_data[, min(Cum_Salary_Change)]
+
+Graph10 <- ggplot(AdminMgr_data, aes(x = `Fiscal Year`, y = `Base Salary`, group = `Fiscal Year`)) + 
+  geom_boxplot() +
+  labs(title = 'DEP Admin Managers (Non-Managerial): Base Salaries FY 2014 to 2020') +
+  scale_y_continuous(limits = c(25000, Graph10_Max_Y), 
+                     labels = label_dollar(negative_parens = TRUE)) 
+print(Graph10)
 
